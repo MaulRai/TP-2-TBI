@@ -237,6 +237,41 @@ class VBEPostings:
         """
         return VBEPostings.vb_decode(encoded_tf_list)
 
+class EliasGammaPostings:
+    """ 
+    Placeholder untuk Elias-Gamma Encoding.
+    Algoritma kompresi berbasis Bit-Level.
+    """
+
+    @staticmethod
+    def encode(postings_list):
+        """
+        Encode postings_list menjadi stream of bytes dengan Elias-Gamma Encoding.
+        (Jangan lupa untuk menggunakan gap-based list seperti pada VBE)
+        """
+        pass
+
+    @staticmethod
+    def decode(encoded_postings_list):
+        """
+        Decodes postings_list dari sebuah stream of bytes (Elias-Gamma).
+        """
+        pass
+
+    @staticmethod
+    def encode_tf(tf_list):
+        """
+        Encode list of term frequencies menjadi stream of bytes dengan Elias-Gamma Encoding.
+        """
+        pass
+
+    @staticmethod
+    def decode_tf(encoded_tf_list):
+        """
+        Decodes list of term frequencies dari sebuah stream of bytes.
+        """
+        pass
+
 if __name__ == '__main__':
     
     postings_list = [34, 67, 89, 454, 2345738]
