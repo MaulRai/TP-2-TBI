@@ -99,7 +99,7 @@ def load_qrels(qrel_file = "qrels.txt", max_q_id = 30, max_doc_id = 1033):
 
 ######## >>>>> EVALUASI !
 
-def eval(qrels, query_file = "queries.txt", k = 1000):
+def eval(qrels, scoring_mode="tfidf", query_file="queries.txt", k=1000):
   """ 
     loop ke semua 30 query, hitung score di setiap query,
     lalu hitung MEAN SCORE over those 30 queries.
@@ -111,6 +111,9 @@ def eval(qrels, query_file = "queries.txt", k = 1000):
 
   with open(query_file) as file:
     rbp_scores = []
+    dcg_scores = []
+    ndcg_scores = []
+    ap_scores = []
     for qline in file:
       parts = qline.strip().split()
       qid = parts[0]
@@ -119,13 +122,27 @@ def eval(qrels, query_file = "queries.txt", k = 1000):
       # HATI-HATI, doc id saat indexing bisa jadi berbeda dengan doc id
       # yang tertera di qrels
       ranking = []
-      for (score, doc) in BSBI_instance.retrieve_bm25(query, k = k):
+      if scoring_mode == "tfidf":
+          results = BSBI_instance.retrieve_tfidf(query, k=k)
+      elif scoring_mode == "bm25":
+          results = BSBI_instance.retrieve_bm25(query, k=k)
+      else:
+          results = BSBI_instance.retrieve_bm25_wand(query, k=k)
+          
+      for (score, doc) in results:
           did = int(re.search(r'\/.*\/.*\/(.*)\.txt', doc).group(1))
           ranking.append(qrels[qid][did])
+          
       rbp_scores.append(rbp(ranking))
+      dcg_scores.append(dcg(ranking))
+      ndcg_scores.append(ndcg(ranking))
+      ap_scores.append(ap(ranking))
 
-  print("Hasil evaluasi TF-IDF terhadap 30 queries")
-  print("RBP score =", sum(rbp_scores) / len(rbp_scores))
+  print(f"\n[Hasil Evaluasi - Algoritma: {scoring_mode.upper()}] terhadap 30 queries")
+  print(f"RBP score  = {sum(rbp_scores) / len(rbp_scores):.4f}")
+  print(f"DCG score  = {sum(dcg_scores) / len(dcg_scores):.4f}")
+  print(f"NDCG score = {sum(ndcg_scores) / len(ndcg_scores):.4f}")
+  print(f"MAP score  = {sum(ap_scores) / len(ap_scores):.4f}")
 
 if __name__ == '__main__':
   qrels = load_qrels()
@@ -133,4 +150,24 @@ if __name__ == '__main__':
   assert qrels["Q1"][166] == 1, "qrels salah"
   assert qrels["Q1"][300] == 0, "qrels salah"
 
-  eval(qrels)
+  print("Pilih metode scoring yang akan dievaluasi:")
+  print("1. TF-IDF")
+  print("2. BM25 (Exhaustive)")
+  print("3. BM25 (WAND Top-K)")
+  print("4. Bandingkan Semua")
+  
+  mode_input = input("Masukkan pilihan (1/2/3/4) [default: 1]: ").strip()
+  
+  if mode_input == "2":
+      eval(qrels, scoring_mode="bm25")
+  elif mode_input == "3":
+      eval(qrels, scoring_mode="wand")
+  elif mode_input == "4":
+      print("\n>>> Evaluasi TF-IDF")
+      eval(qrels, scoring_mode="tfidf")
+      print("\n>>> Evaluasi BM25 (Exhaustive)")
+      eval(qrels, scoring_mode="bm25")
+      print("\n>>> Evaluasi BM25 (WAND)")
+      eval(qrels, scoring_mode="wand")
+  else:
+      eval(qrels, scoring_mode="tfidf")
