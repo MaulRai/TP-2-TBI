@@ -65,13 +65,10 @@ class IdMap:
 
 class PatriciaNode:
     def __init__(self):
-        # TODO: Implementasikan struktur node untuk Patricia Tree
-        # Hint: Node perlu menyimpan edge labels (bisa kumpulan karakter/substring prefix), 
-        # dictionary/list ke children nodes, dan menyimpan term_id jika node tersebut 
-        # merupakan ujung (akhir) dari sebuah term.
+        # Menyimpan struktur mapping: character_pertama -> (sisa_prefix_edge, child_node)
+        # Hal ini menjamin O(1) saat mencari node anak, sambil memelihara efisiensi Radix Tree.
         self.children = {}
         self.term_id = None
-        pass
 
 class PatriciaTreeIdMap:
     """
@@ -80,7 +77,6 @@ class PatriciaTreeIdMap:
     """
     def __init__(self):
         self.root = PatriciaNode()
-        # id_to_str tetap berfungsi sebagai reverse mapping (array biasa sangat cepat untuk index as key)
         self.id_to_str = [] 
 
     def __len__(self):
@@ -91,22 +87,65 @@ class PatriciaTreeIdMap:
         """Mengembalikan string yang terasosiasi dengan index i."""
         return self.id_to_str[i]
 
+    def _add_term(self, s):
+        """Helper untuk menambahkan term ke dictionary array dan mengembalikan index barunya."""
+        self.id_to_str.append(s)
+        return len(self.id_to_str) - 1
+
     def __get_id(self, s):
         """
         Mengembalikan integer id berkorespondensi dengan string s.
         Jika s belum ada pada Patricia Tree, jalankan logika INSERT untuk membuat
         node/edge baru sesuai kaidah Patricia Tree, berikan id baru, dan kembalikan id tersebut.
         """
-        # TODO: Implementasikan logika TRAVERSAL dan INSERTION Patricia Tree
-        # 1. Telusuri edge tree dari root menyamakan substring dari s.
-        # 2. Jika s sudah eksis di path, kembalikan term_id yang ada di node leaf-nya.
-        # 3. Jika path terhenti/berbeda di tengah jalan, Anda harus melakukan SPLIT pada node
-        #    atau menambahkan edge/child baru (INSERTION).
-        # 4. Saat memasukkan term baru, daftarkan string ke reverse mapping:
-        #    self.id_to_str.append(s)
-        #    term_id_baru = len(self.id_to_str) - 1
-        #    Lalu simpan `term_id_baru` di node akhir Anda, dan return nilainya.
-        pass
+        if not s:
+            if self.root.term_id is None:
+                self.root.term_id = self._add_term(s)
+            return self.root.term_id
+            
+        original_s = s
+        curr = self.root
+        
+        while s:
+            if s[0] not in curr.children:
+                new_node = PatriciaNode()
+                new_node.term_id = self._add_term(original_s)
+                curr.children[s[0]] = (s, new_node)
+                return new_node.term_id
+            
+            edge_str, child_node = curr.children[s[0]]
+            
+            # Longest Common Prefix
+            match_len = 0
+            min_len = min(len(s), len(edge_str))
+            while match_len < min_len and s[match_len] == edge_str[match_len]:
+                match_len += 1
+                
+            if match_len == len(edge_str):
+                s = s[match_len:]
+                if not s:
+                    if child_node.term_id is None:
+                        child_node.term_id = self._add_term(original_s)
+                    return child_node.term_id
+                curr = child_node
+            else:
+                
+                split_node = PatriciaNode()
+                
+                rem_edge = edge_str[match_len:]
+                split_node.children[rem_edge[0]] = (rem_edge, child_node)
+                
+                curr.children[s[0]] = (edge_str[:match_len], split_node)
+                
+                s = s[match_len:]
+                if not s:
+                    split_node.term_id = self._add_term(original_s)
+                    return split_node.term_id
+                else:
+                    new_node = PatriciaNode()
+                    new_node.term_id = self._add_term(original_s)
+                    split_node.children[s[0]] = (s, new_node)
+                    return new_node.term_id
 
     def __getitem__(self, key):
         """Akses data menggunakan bracket operator [...]"""
@@ -119,8 +158,24 @@ class PatriciaTreeIdMap:
 
     def __contains__(self, key):
         """Metode opsional/penting untuk mengecek eksistensi term (bisa dipakai untuk query)."""
-        # TODO: Implementasikan pengecekan apakan string 'key' ada di Patricia Tree (Boolean)
-        pass
+        if not key:
+            return self.root.term_id is not None
+            
+        curr = self.root
+        s = key
+        while s:
+            if s[0] not in curr.children:
+                return False
+                
+            edge_str, child_node = curr.children[s[0]]
+            
+            if s.startswith(edge_str):
+                s = s[len(edge_str):]
+                curr = child_node
+            else:
+                return False
+                
+        return curr.term_id is not None
 
 def sorted_merge_posts_and_tfs(posts_tfs1, posts_tfs2):
     """
