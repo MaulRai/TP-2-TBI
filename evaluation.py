@@ -33,29 +33,37 @@ def dcg(ranking):
   """ menghitung score Discounted Cumulative Gain """
   score = 0.
   for i in range(1, len(ranking)):
-    pos = i - 1
-    score += ranking[pos] / math.log2(i + 1)
+    score += ranking[i] / math.log2(i + 1)
   return score
 
 def ndcg(ranking):
   """ menghitung score Normalized Discounted Cumulative Gain """
   score = 0.
   for i in range(1, len(ranking)):
-    pos = i - 1
-    score += ranking[pos] / math.log2(i + 1)
+    score += ranking[i] / math.log2(i + 1)
 
   ideal_score = 0
   ranking.sort(reverse = True)
   for i in range(1, len(ranking)):
-    pos = i - 1
-    ideal_score += ranking[pos] / math.log2(i + 1)
+    ideal_score += ranking[i] / math.log2(i + 1)
   
   return score / ideal_score
 
+def prec(ranking):
+  score = 0.
+  ranking_length = len(ranking)
+  for i in range(1, ranking_length):
+    score += ranking[i]
+  return score / ranking_length
+
 def ap(ranking):
   """ menghitung score Average Precision """
-  # letakkan implementasi AP di sini
-  pass
+  score = 0.
+  R = sum(ranking)
+  for i in range(1, len(ranking)):
+    r = ranking[i]
+    score += r * prec(r) / R
+  return score
 
 ######## >>>>> memuat qrels
 
