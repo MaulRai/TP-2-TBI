@@ -39,7 +39,18 @@ def dcg(ranking):
 
 def ndcg(ranking):
   """ menghitung score Normalized Discounted Cumulative Gain """
-  pass
+  score = 0.
+  for i in range(1, len(ranking)):
+    pos = i - 1
+    score += ranking[pos] / math.log2(i + 1)
+
+  ideal_score = 0
+  ranking.sort(reverse = True)
+  for i in range(1, len(ranking)):
+    pos = i - 1
+    ideal_score += ranking[pos] / math.log2(i + 1)
+  
+  return score / ideal_score
 
 def ap(ranking):
   """ menghitung score Average Precision """
