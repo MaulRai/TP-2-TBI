@@ -63,6 +63,65 @@ class IdMap:
         else:
             raise TypeError
 
+class PatriciaNode:
+    def __init__(self):
+        # TODO: Implementasikan struktur node untuk Patricia Tree
+        # Hint: Node perlu menyimpan edge labels (bisa kumpulan karakter/substring prefix), 
+        # dictionary/list ke children nodes, dan menyimpan term_id jika node tersebut 
+        # merupakan ujung (akhir) dari sebuah term.
+        self.children = {}
+        self.term_id = None
+        pass
+
+class PatriciaTreeIdMap:
+    """
+    Alternatif struktur data untuk IdMap yang menggunakan Patricia Tree (Radix Tree) 
+    untuk mengefisienkan penyimpanan dictionary terms di memori melalui prefix compression.
+    """
+    def __init__(self):
+        self.root = PatriciaNode()
+        # id_to_str tetap berfungsi sebagai reverse mapping (array biasa sangat cepat untuk index as key)
+        self.id_to_str = [] 
+
+    def __len__(self):
+        """Mengembalikan banyaknya term yang disimpan di Patricia Tree."""
+        return len(self.id_to_str)
+
+    def __get_str(self, i):
+        """Mengembalikan string yang terasosiasi dengan index i."""
+        return self.id_to_str[i]
+
+    def __get_id(self, s):
+        """
+        Mengembalikan integer id berkorespondensi dengan string s.
+        Jika s belum ada pada Patricia Tree, jalankan logika INSERT untuk membuat
+        node/edge baru sesuai kaidah Patricia Tree, berikan id baru, dan kembalikan id tersebut.
+        """
+        # TODO: Implementasikan logika TRAVERSAL dan INSERTION Patricia Tree
+        # 1. Telusuri edge tree dari root menyamakan substring dari s.
+        # 2. Jika s sudah eksis di path, kembalikan term_id yang ada di node leaf-nya.
+        # 3. Jika path terhenti/berbeda di tengah jalan, Anda harus melakukan SPLIT pada node
+        #    atau menambahkan edge/child baru (INSERTION).
+        # 4. Saat memasukkan term baru, daftarkan string ke reverse mapping:
+        #    self.id_to_str.append(s)
+        #    term_id_baru = len(self.id_to_str) - 1
+        #    Lalu simpan `term_id_baru` di node akhir Anda, dan return nilainya.
+        pass
+
+    def __getitem__(self, key):
+        """Akses data menggunakan bracket operator [...]"""
+        if type(key) is int:
+            return self.__get_str(key)
+        elif type(key) is str:
+            return self.__get_id(key)
+        else:
+            raise TypeError
+
+    def __contains__(self, key):
+        """Metode opsional/penting untuk mengecek eksistensi term (bisa dipakai untuk query)."""
+        # TODO: Implementasikan pengecekan apakan string 'key' ada di Patricia Tree (Boolean)
+        pass
+
 def sorted_merge_posts_and_tfs(posts_tfs1, posts_tfs2):
     """
     Menggabung (merge) dua lists of tuples (doc id, tf) dan mengembalikan
