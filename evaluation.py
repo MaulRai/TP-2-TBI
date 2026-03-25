@@ -32,20 +32,19 @@ def rbp(ranking, p = 0.8):
 def dcg(ranking):
   """ menghitung score Discounted Cumulative Gain """
   score = 0.
-  for i in range(1, len(ranking)):
-    score += ranking[i] / math.log2(i + 1)
+  for i in range(len(ranking)):
+    score += ranking[i] / math.log2(i + 2)
   return score
 
 def ndcg(ranking):
   """ menghitung score Normalized Discounted Cumulative Gain """
-  score = 0.
-  for i in range(1, len(ranking)):
-    score += ranking[i] / math.log2(i + 1)
+  score = dcg(ranking) 
 
-  ideal_score = 0
-  ranking.sort(reverse = True)
-  for i in range(1, len(ranking)):
-    ideal_score += ranking[i] / math.log2(i + 1)
+  ideal_ranking = sorted(ranking, reverse=True)
+  ideal_score = dcg(ideal_ranking)
+
+  if ideal_score == 0:
+    return 0.0
   
   return score / ideal_score
 
@@ -59,11 +58,22 @@ def prec(ranking):
 def ap(ranking):
   """ menghitung score Average Precision """
   score = 0.
+  relevant_docs_found = 0
+
   R = sum(ranking)
+
+  if R == 0:
+    return 0.0
+
+
   for i in range(1, len(ranking)):
-    r = ranking[i]
-    score += r * prec(r) / R
-  return score
+    if ranking[i] == 1:
+      relevant_docs_found += 1
+
+      precision_at_k = relevant_docs_found / (i + 1)
+      score += precision_at_k
+
+  return score / R
 
 ######## >>>>> memuat qrels
 
