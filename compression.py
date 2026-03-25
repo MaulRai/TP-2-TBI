@@ -1,4 +1,5 @@
 import array
+import math
 
 class StandardPostings:
     """ 
@@ -239,44 +240,61 @@ class VBEPostings:
 
 class EliasGammaPostings:
     """ 
-    Placeholder untuk Elias-Gamma Encoding.
-    Algoritma kompresi berbasis Bit-Level.
+    Elias-Gamma Encoding. Algoritma kompresi berbasis Bit-Level.
     """
+    
+    @staticmethod
+    def eg_encode_number(number: int) -> str:
+        """Encodes a number using Elias-Gamma Encoding"""
+        if number == 0 :
+            raise ValueError("angka harus > 0")
+
+        biner = bin(number)[2:] 
+        panjang_prefix = len(biner) - 1
+        
+        return ('0' * panjang_prefix) + biner
+    
+    @staticmethod
+    def eg_encode(list_of_numbers) -> bytes:
+        """ 
+        Melakukan encoding terhadap list of numbers, dengan Elias-Gamma Encoding.
+        """
+        bitstring = "".join([EliasGammaPostings.eg_encode_number(num) for num in list_of_numbers])
+
+        byte_arr = bytearray()
+        while len(bitstring) >= 8:
+            bit_8 = bitstring[:8]
+            byte_arr.append(int(bit_8, 2))
+            bitstring = bitstring[8:]
+
+        if len(bitstring) > 0:
+            bitstring = bitstring.ljust(8, '0')
+            byte_arr.append(int(bitstring, 2))
+            
+        return bytes(byte_arr)
 
     @staticmethod
     def encode(postings_list):
         """
         Encode postings_list menjadi stream of bytes dengan Elias-Gamma Encoding.
-        (Jangan lupa untuk menggunakan gap-based list seperti pada VBE)
         """
-        pass
-
-    @staticmethod
-    def decode(encoded_postings_list):
-        """
-        Decodes postings_list dari sebuah stream of bytes (Elias-Gamma).
-        """
-        pass
+        gap_postings_list = [postings_list[0]]
+        for i in range(1, len(postings_list)):
+            gap_postings_list.append(postings_list[i] - postings_list[i-1])
+        return EliasGammaPostings.eg_encode(gap_postings_list)
 
     @staticmethod
     def encode_tf(tf_list):
         """
         Encode list of term frequencies menjadi stream of bytes dengan Elias-Gamma Encoding.
         """
-        pass
-
-    @staticmethod
-    def decode_tf(encoded_tf_list):
-        """
-        Decodes list of term frequencies dari sebuah stream of bytes.
-        """
-        pass
+        return EliasGammaPostings.eg_encode(tf_list)
 
 if __name__ == '__main__':
     
     postings_list = [34, 67, 89, 454, 2345738]
     tf_list = [12, 10, 3, 4, 1]
-    for Postings in [StandardPostings, VBEPostings]:
+    for Postings in [StandardPostings, VBEPostings, EliasGammaPostings]:
         print(Postings.__name__)
         encoded_postings_list = Postings.encode(postings_list)
         encoded_tf_list = Postings.encode_tf(tf_list)
