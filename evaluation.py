@@ -1,6 +1,7 @@
+import math
 import re
 from bsbi import BSBIIndex
-from compression import VBEPostings
+from compression import VBEPostings, EliasGammaPostings
 
 ######## >>>>> sebuah IR metric: RBP p = 0.8
 
@@ -28,6 +29,22 @@ def rbp(ranking, p = 0.8):
     score += ranking[pos] * (p ** (i - 1))
   return (1 - p) * score
 
+def dcg(ranking):
+  """ menghitung score Discounted Cumulative Gain """
+  score = 0.
+  for i in range(1, len(ranking)):
+    pos = i - 1
+    score += ranking[pos] / math.log2(i + 1)
+  return score
+
+def ndcg(ranking):
+  """ menghitung score Normalized Discounted Cumulative Gain """
+  pass
+
+def ap(ranking):
+  """ menghitung score Average Precision """
+  # letakkan implementasi AP di sini
+  pass
 
 ######## >>>>> memuat qrels
 
@@ -60,7 +77,7 @@ def eval(qrels, query_file = "queries.txt", k = 1000):
     untuk setiap query, kembalikan top-1000 documents
   """
   BSBI_instance = BSBIIndex(data_dir = 'collection', \
-                          postings_encoding = VBEPostings, \
+                          postings_encoding = EliasGammaPostings, \
                           output_dir = 'index')
 
   with open(query_file) as file:
