@@ -1,4 +1,4 @@
-import os
+﻿import os
 import pickle
 import contextlib
 import heapq
@@ -372,24 +372,60 @@ class BSBIIndex:
             docs = [(score, self.doc_id_map[doc_id]) for score, doc_id in sorted(top_k_heap, reverse=True)]
             return docs
 
-    def index(self):
+    def spimi_invert(self, block_dir_relative, index):
+        """
+        Melakukan pemrosesan SPIMI (Single-pass in-memory indexing) untuk satu block.
+        Berbeda dengan BSBI yang mendaftarkan List of (termID, docID) tuple secara flat,
+        SPIMI langsung membangun dictionary / hashtable postings di memori selama parsing.
+        """
+        term_dict = {}
+        term_tf = {}
+        dir_path = "./" + self.data_dir + "/" + block_dir_relative
+        
+        for filename in next(os.walk(dir_path))[2]:
+            docname = dir_path + "/" + filename
+            # Daftarkan/dapatkan ID dokumen ke doc_id_map
+            doc_id = self.doc_id_map[docname]
+            
+            with open(docname, "r", encoding="utf8", errors="surrogateescape") as f:
+                for token in f.read().split():
+                    # Daftarkan/dapatkan ID term ke term_id_map
+                    term_id = self.term_id_map[token]
+                    
+                    if term_id not in term_dict:
+                        term_dict[term_id] = set()
+                        term_tf[term_id] = {}
+                        
+                    term_dict[term_id].add(doc_id)
+                    
+                    if doc_id not in term_tf[term_id]:
+                        term_tf[term_id][doc_id] = 0
+                    term_tf[term_id][doc_id] += 1
+                    
+        # Hanya perlu di-sort keys-nya (term) waktu akan ditulis ke disk
+        for term_id in sorted(term_dict.keys()):
+            sorted_doc_id = sorted(list(term_dict[term_id]))
+            assoc_tf = [term_tf[term_id][doc_id] for doc_id in sorted_doc_id]
+            index.append(term_id, sorted_doc_id, assoc_tf)
+
+    def index(self, mode="bsbi"):
         """
         Base indexing code
         BAGIAN UTAMA untuk melakukan Indexing dengan skema BSBI (blocked-sort
-        based indexing)
-
-        Method ini scan terhadap semua data di collection, memanggil parse_block
-        untuk parsing dokumen dan memanggil invert_write yang melakukan inversion
-        di setiap block dan menyimpannya ke index yang baru.
+        based indexing) atau SPIMI.
         """
         # loop untuk setiap sub-directory di dalam folder collection (setiap block)
         for block_dir_relative in tqdm(sorted(next(os.walk(self.data_dir))[1])):
-            td_pairs = self.parse_block(block_dir_relative)
             index_id = 'intermediate_index_'+block_dir_relative
             self.intermediate_indices.append(index_id)
+            
             with InvertedIndexWriter(index_id, self.postings_encoding, directory = self.output_dir) as index:
-                self.invert_write(td_pairs, index)
-                td_pairs = None
+                if mode == "bsbi":
+                    td_pairs = self.parse_block(block_dir_relative)
+                    self.invert_write(td_pairs, index)
+                    td_pairs = None
+                elif mode == "spimi":
+                    self.spimi_invert(block_dir_relative, index)
     
         self.save()
 
@@ -409,7 +445,22 @@ class BSBIIndex:
 
 if __name__ == "__main__":
 
+    print("Pilih mode indexing:")
+    print("1. BSBI (Blocked Sort-Based Indexing)")
+    print("2. SPIMI (Single-Pass In-Memory Indexing)")
+    mode_input = input("Masukkan pilihan (1/2) [default: 1]: ").strip()
+    
+    indexing_mode = "bsbi"
+    if mode_input == "2":
+        indexing_mode = "spimi"
+
     BSBI_instance = BSBIIndex(data_dir = 'collection', \
                               postings_encoding = EliasGammaPostings, \
                               output_dir = 'index')
-    BSBI_instance.index() # memulai indexing!
+                              
+    print(f"\nMemulai indexing dengan metode {indexing_mode.upper()}...")
+    start_time = time.time()
+    BSBI_instance.index(mode=indexing_mode) # memulai indexing!
+    end_time = time.time()
+    
+    print(f"Selesai! Waktu indexing dibutuhkan: {end_time - start_time:.4f} detik")
