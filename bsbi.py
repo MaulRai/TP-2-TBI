@@ -7,7 +7,7 @@ import math
 
 from index import InvertedIndexReader, InvertedIndexWriter
 from util import IdMap, sorted_merge_posts_and_tfs
-from compression import StandardPostings, VBEPostings
+from compression import StandardPostings, VBEPostings, EliasGammaPostings
 from tqdm import tqdm
 
 class BSBIIndex:
@@ -223,6 +223,43 @@ class BSBIIndex:
             docs = [(score, self.doc_id_map[doc_id]) for (doc_id, score) in scores.items()]
             return sorted(docs, key = lambda x: x[0], reverse = True)[:k]
 
+    def retrieve_bm25(self, query, k = 25, k1 = 1.5, b = 0.75):
+        """
+        Retrieve documents using BM25 ranking algorithm.
+        """
+
+        if len(self.term_id_map) == 0 or len(self.doc_id_map) == 0:
+            self.load()
+
+        terms = [self.term_id_map[word] for word in query.split()]
+        with InvertedIndexReader(self.index_name, self.postings_encoding, directory=self.output_dir) as merged_index:
+            scores = {}
+            
+            dls = merged_index.doc_length
+            N = len(dls)
+            if N > 0:
+                avdl = sum(dls.values()) / N
+            else:
+                avdl = 0
+
+            for term in terms:
+                if term in merged_index.postings_dict:
+                    df = merged_index.postings_dict[term][1]
+                    postings, tf_list = merged_index.get_postings_list(term)
+                    
+                    for i in range(len(postings)):
+                        doc_id, tf = postings[i], tf_list[i]
+                        if doc_id not in scores:
+                            scores[doc_id] = 0
+                            
+                        if tf > 0:
+                            dl = dls[doc_id]
+                            denominator = k1 * ((1 - b) + b * dl / avdl) + tf
+                            scores[doc_id] += math.log(N / df) * (k1 + 1) * tf / denominator
+
+            docs = [(score, self.doc_id_map[doc_id]) for (doc_id, score) in scores.items()]
+            return sorted(docs, key = lambda x: x[0], reverse = True)[:k]
+
     def index(self):
         """
         Base indexing code
@@ -254,6 +291,6 @@ class BSBIIndex:
 if __name__ == "__main__":
 
     BSBI_instance = BSBIIndex(data_dir = 'collection', \
-                              postings_encoding = VBEPostings, \
+                              postings_encoding = EliasGammaPostings, \
                               output_dir = 'index')
     BSBI_instance.index() # memulai indexing!
