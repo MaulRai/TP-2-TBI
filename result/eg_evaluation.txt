@@ -1,0 +1,2 @@
+Hasil evaluasi TF-IDF terhadap 30 queries
+RBP score = 0.6321178504855356
