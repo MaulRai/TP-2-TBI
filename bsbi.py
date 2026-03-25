@@ -130,7 +130,7 @@ class BSBIIndex:
             assoc_tf = [term_tf[term_id][doc_id] for doc_id in sorted_doc_id]
             index.append(term_id, sorted_doc_id, assoc_tf)
 
-    def merge(self, indices, merged_index):
+    def merge(self, indices, merged_index, global_doc_length=None):
         """
         Lakukan merging ke semua intermediate inverted indices menjadi
         sebuah single index.
@@ -150,6 +150,13 @@ class BSBIIndex:
             Instance InvertedIndexWriter object yang merupakan hasil merging dari
             semua intermediate InvertedIndexWriter objects.
         """
+        # Persiapan prekomputasi bounding skor BM25 untuk algoritma WAND
+        k1, b = 1.5, 0.75
+        N = avdl = 0
+        if global_doc_length:
+            N = len(global_doc_length)
+            avdl = sum(global_doc_length.values()) / N if N > 0 else 0
+
         # kode berikut mengasumsikan minimal ada 1 term
         merged_iter = heapq.merge(*indices, key = lambda x: x[0])
         curr, postings, tf_list = next(merged_iter) # first item
@@ -160,8 +167,29 @@ class BSBIIndex:
                 postings = [doc_id for (doc_id, _) in zip_p_tf]
                 tf_list = [tf for (_, tf) in zip_p_tf]
             else:
+                if global_doc_length:
+                    df = len(postings)
+                    idf = math.log(N / df)
+                    max_score = 0
+                    for i in range(len(postings)):
+                        score = idf * (k1 + 1) * tf_list[i] / (k1 * ((1 - b) + b * global_doc_length[postings[i]] / avdl) + tf_list[i])
+                        if score > max_score:
+                            max_score = score
+                    merged_index.term_max_score[curr] = max_score
+                    
                 merged_index.append(curr, postings, tf_list)
                 curr, postings, tf_list = t, postings_, tf_list_
+                
+        if global_doc_length:
+            df = len(postings)
+            idf = math.log(N / df)
+            max_score = 0
+            for i in range(len(postings)):
+                score = idf * (k1 + 1) * tf_list[i] / (k1 * ((1 - b) + b * global_doc_length[postings[i]] / avdl) + tf_list[i])
+                if score > max_score:
+                    max_score = score
+            merged_index.term_max_score[curr] = max_score
+            
         merged_index.append(curr, postings, tf_list)
 
     def retrieve_tfidf(self, query, k = 10):
@@ -260,6 +288,90 @@ class BSBIIndex:
             docs = [(score, self.doc_id_map[doc_id]) for (doc_id, score) in scores.items()]
             return sorted(docs, key = lambda x: x[0], reverse = True)[:k]
 
+    def retrieve_bm25_wand(self, query, k = 25, k1 = 1.5, b = 0.75):
+        """
+        Retrieve documents menggunakan algoritma WAND (Weak AND) untuk BM25.
+        Ini akan mengeksekusi iterasi Document-at-a-Time dan melakukan pruning
+        sehingga tidak semua dokumen dihitung skornya.
+        """
+        if len(self.term_id_map) == 0 or len(self.doc_id_map) == 0:
+            self.load()
+
+        terms = [self.term_id_map[word] for word in query.split() if word in self.term_id_map]
+        
+        with InvertedIndexReader(self.index_name, self.postings_encoding, directory=self.output_dir) as merged_index:
+            dls = merged_index.doc_length
+            N = len(dls)
+            avdl = sum(dls.values()) / N if N > 0 else 0
+            
+            term_iters = []
+            for term in terms:
+                if term in merged_index.postings_dict:
+                    postings, tf_list = merged_index.get_postings_list(term)
+                    max_score = merged_index.term_max_score[term]
+                    df = len(postings)
+                    idf = math.log(N / df)
+                    term_iters.append({
+                        'term': term,
+                        'postings': postings,
+                        'tf_list': tf_list,
+                        'ptr': 0,
+                        'max_score': max_score,
+                        'idf': idf
+                    })
+                    
+            top_k_heap = []
+            threshold = 0.0
+            
+            while True:
+                term_iters = [t for t in term_iters if t['ptr'] < len(t['postings'])]
+                if not term_iters:
+                    break
+                    
+                term_iters.sort(key=lambda x: x['postings'][x['ptr']])
+                
+                score_limit = 0.0
+                pivot_idx = -1
+                for i, t in enumerate(term_iters):
+                    score_limit += t['max_score']
+                    if score_limit > threshold:
+                        pivot_idx = i
+                        break
+                        
+                if pivot_idx == -1:
+                    break
+                    
+                pivot_item = term_iters[pivot_idx]
+                pivot_doc = pivot_item['postings'][pivot_item['ptr']]
+                
+                first_item = term_iters[0]
+                first_doc = first_item['postings'][first_item['ptr']]
+                
+                if first_doc == pivot_doc:
+                    score = 0.0
+                    for t in term_iters:
+                        if t['postings'][t['ptr']] == pivot_doc:
+                            tf = t['tf_list'][t['ptr']]
+                            dl = dls[pivot_doc]
+                            score += t['idf'] * (k1 + 1) * tf / (k1 * ((1 - b) + b * dl / avdl) + tf)
+                            t['ptr'] += 1
+
+                    if len(top_k_heap) < k:
+                        heapq.heappush(top_k_heap, (score, pivot_doc))
+                        if len(top_k_heap) == k:
+                            threshold = top_k_heap[0][0]
+                    else:
+                        if score > threshold:
+                            heapq.heappushpop(top_k_heap, (score, pivot_doc))
+                            threshold = top_k_heap[0][0]
+                else:
+                    t0 = term_iters[0]
+                    while t0['ptr'] < len(t0['postings']) and t0['postings'][t0['ptr']] < pivot_doc:
+                        t0['ptr'] += 1
+
+            docs = [(score, self.doc_id_map[doc_id]) for score, doc_id in sorted(top_k_heap, reverse=True)]
+            return docs
+
     def index(self):
         """
         Base indexing code
@@ -281,11 +393,18 @@ class BSBIIndex:
     
         self.save()
 
+        global_doc_length = {}
+        for index_id in self.intermediate_indices:
+            path = os.path.join(self.output_dir, index_id + '.dict')
+            with open(path, 'rb') as f:
+                _, _, dl, _ = pickle.load(f)
+                global_doc_length.update(dl)
+
         with InvertedIndexWriter(self.index_name, self.postings_encoding, directory = self.output_dir) as merged_index:
             with contextlib.ExitStack() as stack:
                 indices = [stack.enter_context(InvertedIndexReader(index_id, self.postings_encoding, directory=self.output_dir))
                                for index_id in self.intermediate_indices]
-                self.merge(indices, merged_index)
+                self.merge(indices, merged_index, global_doc_length)
 
 
 if __name__ == "__main__":
