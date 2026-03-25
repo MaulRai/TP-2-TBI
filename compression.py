@@ -289,6 +289,45 @@ class EliasGammaPostings:
         Encode list of term frequencies menjadi stream of bytes dengan Elias-Gamma Encoding.
         """
         return EliasGammaPostings.eg_encode(tf_list)
+    
+    @staticmethod
+    def eg_decode(encoded_bytestream):
+        """
+        Decoding sebuah bytestream yang sebelumnya di-encode dengan
+        Elias-Gamma encoding.
+        """
+        bitstring = "".join(f"{byte:08b}" for byte in encoded_bytestream)
+        
+        numbers = []
+        while '1' in bitstring:
+            start = bitstring.find('1')
+            end = start * 2 + 1
+            num = bitstring[start:end]
+            num = int(num, 2)
+            numbers.append(num)
+            bitstring = bitstring[end:]
+
+        return numbers
+
+    @staticmethod
+    def decode(encoded_postings_list):
+        """
+        Decodes postings_list dari sebuah stream of bytes (Elias-Gamma).
+        """
+        decoded_postings_list = EliasGammaPostings.eg_decode(encoded_postings_list)
+        total = decoded_postings_list[0]
+        ori_postings_list = [total]
+        for i in range(1, len(decoded_postings_list)):
+            total += decoded_postings_list[i]
+            ori_postings_list.append(total)
+        return ori_postings_list
+
+    @staticmethod
+    def decode_tf(encoded_tf_list):
+        """
+        Decodes list of term frequencies dari sebuah stream of bytes.
+        """
+        return EliasGammaPostings.eg_decode(encoded_tf_list)
 
 if __name__ == '__main__':
     
