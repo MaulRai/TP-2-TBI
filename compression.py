@@ -259,7 +259,8 @@ class EliasGammaPostings:
         """ 
         Melakukan encoding terhadap list of numbers, dengan Elias-Gamma Encoding.
         """
-        bitstring = "".join([EliasGammaPostings.eg_encode_number(num) for num in list_of_numbers])
+        # Trik ditambah 1
+        bitstring = "".join([EliasGammaPostings.eg_encode_number(num + 1) for num in list_of_numbers])
 
         byte_arr = bytearray()
         while len(bitstring) >= 8:
@@ -302,8 +303,11 @@ class EliasGammaPostings:
         while '1' in bitstring:
             start = bitstring.find('1')
             end = start * 2 + 1
-            num = bitstring[start:end]
-            num = int(num, 2)
+            num_str = bitstring[start:end]
+
+            # Trik dikurangi 1
+            num = int(num_str, 2) - 1
+
             numbers.append(num)
             bitstring = bitstring[end:]
 
