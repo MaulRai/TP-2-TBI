@@ -25,9 +25,9 @@
 
 - **WAND Top-K Retrieval**: Implementasi WAND (Weak AND) untuk mempercepat retrieval top-K dengan pruning tersedia sebagai opsi `retrieve_bm25_wand` di `bsbi.py`.
 
-- **Indexing dengan SPIMI**: Mode SPIMI didukung — pilih `2` saat menjalankan `bsbi.py` untuk menjalankan single-pass in-memory indexing per block.
+- **[Bagian Bonus] Indexing dengan SPIMI**: Mode SPIMI didukung — pilih `2` saat menjalankan `bsbi.py` untuk menjalankan single-pass in-memory indexing per block.
 
-- **Struktur dictionary efisien (Patricia Tree)**: Term-term pada dictionary disusun menggunakan struktur Patricia Tree untuk efisiensi prefix — lihat `util.py` (class `PatriciaTreeIdMap`).
+- **[Bagian Bonus] Struktur dictionary efisien (Patricia Tree)**: Term-term pada dictionary disusun menggunakan struktur Patricia Tree untuk efisiensi prefix — lihat `util.py` (class `PatriciaTreeIdMap`).
 
 # Laporan Hasil
 
