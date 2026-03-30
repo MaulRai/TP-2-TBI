@@ -6,7 +6,7 @@ import time
 import math
 
 from index import InvertedIndexReader, InvertedIndexWriter
-from util import IdMap, sorted_merge_posts_and_tfs
+from util import IdMap, sorted_merge_posts_and_tfs, PatriciaTreeIdMap
 from compression import StandardPostings, VBEPostings, EliasGammaPostings
 from tqdm import tqdm
 
@@ -24,7 +24,7 @@ class BSBIIndex:
     index_name(str): Nama dari file yang berisi inverted index
     """
     def __init__(self, data_dir, output_dir, postings_encoding, index_name = "main_index"):
-        self.term_id_map = IdMap()
+        self.term_id_map = PatriciaTreeIdMap()
         self.doc_id_map = IdMap()
         self.data_dir = data_dir
         self.output_dir = output_dir
