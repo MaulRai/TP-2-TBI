@@ -1,14 +1,18 @@
-﻿import os
+import os
 import pickle
 import contextlib
 import heapq
 import time
 import math
+import re
 
 from index import InvertedIndexReader, InvertedIndexWriter
 from util import IdMap, sorted_merge_posts_and_tfs, PatriciaTreeIdMap
 from compression import StandardPostings, VBEPostings, EliasGammaPostings
 from tqdm import tqdm
+
+from nltk.corpus import stopwords
+from nltk.stem import PorterStemmer
 
 class BSBIIndex:
     """
@@ -33,6 +37,33 @@ class BSBIIndex:
 
         # Untuk menyimpan nama-nama file dari semua intermediate inverted index
         self.intermediate_indices = []
+
+        # Stopwords dan stemmer untuk preprocessing
+        self.stop_words = set(stopwords.words('english'))
+        self.stemmer = PorterStemmer()
+
+    def pre_processing_text(self, text):
+        """
+        Melakukan preprocessing pada text:
+        1. Tokenisasi menggunakan regex (hanya huruf dan angka)
+        2. Case folding (lowercase)
+        3. Stopwords removal (English)
+        4. Stemming (Porter Stemmer)
+
+        Parameters
+        ----------
+        text : str
+            Teks yang akan diproses
+
+        Returns
+        -------
+        List[str]
+            List of preprocessed tokens
+        """
+        # Tokenisasi: ambil hanya kata-kata alfanumerik
+        tokens = re.findall(r'\w+', text.lower())
+        # Buang stopwords dan lakukan stemming
+        return [self.stemmer.stem(token) for token in tokens if token not in self.stop_words]
 
     def save(self):
         """Menyimpan doc_id_map and term_id_map ke output directory via pickle"""
@@ -88,7 +119,7 @@ class BSBIIndex:
         for filename in next(os.walk(dir))[2]:
             docname = dir + "/" + filename
             with open(docname, "r", encoding = "utf8", errors = "surrogateescape") as f:
-                for token in f.read().split():
+                for token in self.pre_processing_text(f.read()):
                     td_pairs.append((self.term_id_map[token], self.doc_id_map[docname]))
 
         return td_pairs
@@ -231,7 +262,7 @@ class BSBIIndex:
         if len(self.term_id_map) == 0 or len(self.doc_id_map) == 0:
             self.load()
 
-        terms = [self.term_id_map[word] for word in query.split()]
+        terms = [self.term_id_map[word] for word in self.pre_processing_text(query)]
         with InvertedIndexReader(self.index_name, self.postings_encoding, directory=self.output_dir) as merged_index:
 
             scores = {}
@@ -259,7 +290,7 @@ class BSBIIndex:
         if len(self.term_id_map) == 0 or len(self.doc_id_map) == 0:
             self.load()
 
-        terms = [self.term_id_map[word] for word in query.split()]
+        terms = [self.term_id_map[word] for word in self.pre_processing_text(query)]
         with InvertedIndexReader(self.index_name, self.postings_encoding, directory=self.output_dir) as merged_index:
             scores = {}
             
@@ -297,7 +328,7 @@ class BSBIIndex:
         if len(self.term_id_map) == 0 or len(self.doc_id_map) == 0:
             self.load()
 
-        terms = [self.term_id_map[word] for word in query.split() if word in self.term_id_map]
+        terms = [self.term_id_map[word] for word in self.pre_processing_text(query) if word in self.term_id_map]
         
         with InvertedIndexReader(self.index_name, self.postings_encoding, directory=self.output_dir) as merged_index:
             dls = merged_index.doc_length
@@ -388,7 +419,7 @@ class BSBIIndex:
             doc_id = self.doc_id_map[docname]
             
             with open(docname, "r", encoding="utf8", errors="surrogateescape") as f:
-                for token in f.read().split():
+                for token in self.pre_processing_text(f.read()):
                     # Daftarkan/dapatkan ID term ke term_id_map
                     term_id = self.term_id_map[token]
                     
