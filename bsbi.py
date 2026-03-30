@@ -508,3 +508,21 @@ if __name__ == "__main__":
     end_time = time.time()
     
     print(f"Selesai! Waktu indexing dibutuhkan: {end_time - start_time:.4f} detik")
+    # Tampilkan total ukuran file yang digunakan pada folder index
+    try:
+        total_bytes = 0
+        for fname in os.listdir(BSBI_instance.output_dir):
+            fpath = os.path.join(BSBI_instance.output_dir, fname)
+            if os.path.isfile(fpath):
+                total_bytes += os.path.getsize(fpath)
+
+        def human(n):
+            for unit in ['B','KB','MB','GB']:
+                if n < 1024.0:
+                    return f"{n:.2f}{unit}"
+                n /= 1024.0
+            return f"{n:.2f}TB"
+
+        print(f"Total ukuran berkas di '{BSBI_instance.output_dir}': {total_bytes} bytes ({human(total_bytes)})")
+    except Exception as e:
+        print("Gagal menghitung ukuran berkas index:", e)
