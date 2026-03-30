@@ -1,4 +1,4 @@
-import os
+﻿import os
 import pickle
 import contextlib
 import heapq
@@ -485,11 +485,24 @@ if __name__ == "__main__":
     if mode_input == "2":
         indexing_mode = "spimi"
 
+    # Pilih metode kompresi (dalam Bahasa Indonesia)
+    print("Pilih metode kompresi:")
+    print("1. Standard (tidak kompresi / array of unsigned long)")
+    print("2. VBE (Variable-Byte Encoding dengan gap)")
+    print("3. Elias-Gamma (Elias-Gamma dengan gap) [default]")
+    comp_input = input("Masukkan pilihan kompresi (1/2/3) [default: 3]: ").strip()
+    if comp_input == "1":
+        postings_encoding = StandardPostings
+    elif comp_input == "2":
+        postings_encoding = VBEPostings
+    else:
+        postings_encoding = EliasGammaPostings
+
     BSBI_instance = BSBIIndex(data_dir = 'collection', \
-                              postings_encoding = EliasGammaPostings, \
+                              postings_encoding = postings_encoding, \
                               output_dir = 'index')
                               
-    print(f"\nMemulai indexing dengan metode {indexing_mode.upper()}...")
+    print(f"\nMemulai indexing dengan metode {indexing_mode.upper()} dan kompresi {postings_encoding.__name__}...")
     start_time = time.time()
     BSBI_instance.index(mode=indexing_mode) # memulai indexing!
     end_time = time.time()
