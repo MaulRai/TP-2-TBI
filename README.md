@@ -1,4 +1,4 @@
-# Sistem Pencarian — Panduan Singkat (Bahasa Indonesia)
+# TP 2: Sistem Pencarian
 
 ## Penggunaan
 
